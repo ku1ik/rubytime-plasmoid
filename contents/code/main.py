@@ -25,126 +25,138 @@ from PyKDE4.kio import *
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
 from editor import Editor
-import os
+# import os
+import dbus
 
 class RubytimeApplet(plasmascript.Applet):
-	def __init__(self, parent, args = None):
-		plasmascript.Applet.__init__(self, parent)
+  def __init__(self, parent, args = None):
+    plasmascript.Applet.__init__(self, parent)
 
-	def init(self):
-		# self.setHasConfigurationInterface(True)
-		self.setLayout( QGraphicsLinearLayout() )
-		self.setContentsMargins(0, 0, 0, 0)
-		self.layout().setContentsMargins(0, 0, 0, 0)
-		self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
-		self.layout().addItem(self.icon)
-		#self.resize( self.icon.iconSize() )
-		#self.setAcceptDrops(True)
-		self.entries = []
-		#gc = self.config()
-		#(count, bummer) = gc.readEntry("count", QVariant(0) ).toInt()
-		#if count > 0:
-		#	default = QStringList("*")
-		#	default.append( os.path.expanduser("~") )
-		#	default.append("True")
-		#	default.append("False")
-		#	for i in range(0, count):
-		#		lst = gc.readXdgListEntry("_" + str(i), default)
-		#		lst.append("")
-		#		wildcard = True
-		#		if lst[2] == "False":
-		#			wildcard = False
-		#		case = False
-		#		if lst[3] == "True":
-		#			case = True
-		#		self.entries.append( [lst[0], lst[1], wildcard, case] )
-		#self.connect(self.icon, SIGNAL("clicked()"), self.showConfigurationInterface)
-		self.resize(128, 128)
+  def init(self):
+    self.sessionBus = dbus.SessionBus()
+    self.notifications = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
 
-	def contextualActions(self):
-		return []
+    # self.setHasConfigurationInterface(True)
+    self.setLayout( QGraphicsLinearLayout() )
+    self.setContentsMargins(0, 0, 0, 0)
+    self.layout().setContentsMargins(0, 0, 0, 0)
+    self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
+    self.layout().addItem(self.icon)
+    #self.resize( self.icon.iconSize() )
+    #self.setAcceptDrops(True)
+    self.entries = []
+    #gc = self.config()
+    #(count, bummer) = gc.readEntry("count", QVariant(0) ).toInt()
+    #if count > 0:
+    #	default = QStringList("*")
+    #	default.append( os.path.expanduser("~") )
+    #	default.append("True")
+    #	default.append("False")
+    #	for i in range(0, count):
+    #		lst = gc.readXdgListEntry("_" + str(i), default)
+    #		lst.append("")
+    #		wildcard = True
+    #		if lst[2] == "False":
+    #			wildcard = False
+    #		case = False
+    #		if lst[3] == "True":
+    #			case = True
+    #		self.entries.append( [lst[0], lst[1], wildcard, case] )
+    self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
+    self.resize(128, 128)
 
-	def paintInterface(self, painter, option, rect):
-		pass
+  def contextualActions(self):
+    return []
 
-	def constraintsEvent(self, constraints):
-		pass
+  def paintInterface(self, painter, option, rect):
+    pass
 
-	#def createConfigurationInterface(self, parent):
-	#	self.editor = Editor(self.entries)
-	#	p = parent.addPage(self.editor, ki18n("Rules").toString() )
-	#	p.setIcon( KIcon("view-filter") )
-	#	self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
-	#	self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
-	#	pass
+  def constraintsEvent(self, constraints):
+    pass
 
-	#def showConfigurationInterface(self):
-	#	dialog = KPageDialog()
-	#	dialog.setFaceType(KPageDialog.List)
-	#	dialog.setButtons( KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel) )
-	#	self.createConfigurationInterface(dialog)
-	#	dialog.exec_()
+  #def createConfigurationInterface(self, parent):
+  #	self.editor = Editor(self.entries)
+  #	p = parent.addPage(self.editor, ki18n("Rules").toString() )
+  #	p.setIcon( KIcon("view-filter") )
+  #	self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
+  #	self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
+  #	pass
 
-	def mousePressEvent(self, event):
-		pass
+  #def showConfigurationInterface(self):
+  #	dialog = KPageDialog()
+  #	dialog.setFaceType(KPageDialog.List)
+  #	dialog.setButtons( KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel) )
+  #	self.createConfigurationInterface(dialog)
+  #	dialog.exec_()
+  
+  def notifyMe(self):
+    self.sendNotification('Please don\'t forget to add today\'s activities to Rubytime!')
+    pass
 
-	def configAccepted(self):
-		self.entries = self.editor.exportList()
-		gc = self.config()
-		gc.writeEntry("count", QVariant( len(self.entries) ) )
-		counter = 0
-		for entry in self.entries:
-			print entry
-		
-			lst = QStringList( entry[0] )
-			lst.append( entry[1] )
-			
-			if entry[2]:
-				a = "True"
-			else:
-				a = "False"
-			lst.append(a)
-			
-			if entry[3]:
-				a = "True"
-			else:
-				a = "False"
-			lst.append(a)
-			
-			gc.writeXdgListEntry("_" + str(counter), lst)
-			counter += 1
-		self.configDenied()
+  def sendNotification(self, body):
+    self.notifications.Notify('rubytime-plasmoid', 0, 'someid', 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
+    pass
 
-	def configDenied(self):
-		self.editor.deleteLater()
+  def mousePressEvent(self, event):
+    pass
 
-	def shouldConserveResources(self):
-		return True
+  def configAccepted(self):
+    self.entries = self.editor.exportList()
+    gc = self.config()
+    gc.writeEntry("count", QVariant( len(self.entries) ) )
+    counter = 0
+    for entry in self.entries:
+      print entry
 
-	def dragEnterEvent(self, e):
-		e.accept()
+      lst = QStringList( entry[0] )
+      lst.append( entry[1] )
 
-	def dropEvent(self, e):
-		t = e.mimeData().text().split("\n")
-		for src in t:
-			if src.isEmpty():
-				continue
-			dest = ""
-			for entry in self.entries:
-				format = QRegExp.RegExp2
-				if entry[2]:
-					format = QRegExp.Wildcard
-				regex = QRegExp(entry[0], Qt.CaseSensitive, format)
-				if not regex.isValid():
-					continue
-				if regex.indexIn(src) > -1:
-					dest = entry[1]
-					break
-			if QString(dest).isEmpty():
-				continue
-			KIO.move( KUrl(src), KUrl(dest) )
+      if entry[2]:
+        a = "True"
+      else:
+        a = "False"
+      lst.append(a)
+
+      if entry[3]:
+        a = "True"
+      else:
+        a = "False"
+      lst.append(a)
+
+      gc.writeXdgListEntry("_" + str(counter), lst)
+      counter += 1
+    self.configDenied()
+
+  def configDenied(self):
+    self.editor.deleteLater()
+
+  def shouldConserveResources(self):
+    return True
+
+  def dragEnterEvent(self, e):
+    e.accept()
+
+  def dropEvent(self, e):
+    t = e.mimeData().text().split("\n")
+    for src in t:
+      if src.isEmpty():
+        continue
+      dest = ""
+      for entry in self.entries:
+        format = QRegExp.RegExp2
+        if entry[2]:
+          format = QRegExp.Wildcard
+        regex = QRegExp(entry[0], Qt.CaseSensitive, format)
+        if not regex.isValid():
+          continue
+        if regex.indexIn(src) > -1:
+          dest = entry[1]
+          break
+      if QString(dest).isEmpty():
+        continue
+      KIO.move( KUrl(src), KUrl(dest) )
 
 
 def CreateApplet(parent):
-	return RubytimeApplet(parent)
+  return RubytimeApplet(parent)
 
