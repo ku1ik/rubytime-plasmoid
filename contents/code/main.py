@@ -36,8 +36,18 @@ class RubytimeApplet(plasmascript.Applet):
     self.sessionBus = dbus.SessionBus()
     self.notifications = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
 
+    # ui setup
+    self.label = Plasma.FlashingLabel()#self)
+    self.label.setAutohide(True)
+    self.label.setMinimumSize(0, 20)
+    self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    
     # self.setHasConfigurationInterface(True)
-    self.setLayout( QGraphicsLinearLayout() )
+    layout = QGraphicsLinearLayout(Qt.Vertical)
+    layout.setSpacing(3)
+    
+    self.setLayout(layout)
+
     self.setContentsMargins(0, 0, 0, 0)
     self.layout().setContentsMargins(0, 0, 0, 0)
     self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
@@ -63,7 +73,7 @@ class RubytimeApplet(plasmascript.Applet):
     #			case = True
     #		self.entries.append( [lst[0], lst[1], wildcard, case] )
     self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
-    self.resize(128, 128)
+    # self.resize(128, 128)
 
     # setup morning notifications
     self.morningTimer = QTimer(self)
