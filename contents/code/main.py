@@ -25,36 +25,97 @@ from PyKDE4.kio import *
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
 # from editor import Editor
-import random
 import dbus
+import rubytime
 
 class RubytimeApplet(plasmascript.Applet):
   def __init__(self, parent, args = None):
     plasmascript.Applet.__init__(self, parent)
 
   def init(self):
+    self.cfg = self.config()
+    self.recentActivities = []
+
+    # create session
+    self.api = rubytime.RubytimeSession(self.cfg.readEntry('hostname', 'http://rt.llp.pl'),
+                                        self.cfg.readEntry('username', 'test'), self.cfg.readEntry('password', 'test123'))
+
+    # setup notifications proxy
     self.sessionBus = dbus.SessionBus()
-    self.notifications = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
+    self.notificationsProxy = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
 
-    # ui setup
-    self.label = Plasma.FlashingLabel()#self)
-    self.label.setAutohide(True)
-    self.label.setMinimumSize(0, 20)
-    self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    
-    # self.setHasConfigurationInterface(True)
-    layout = QGraphicsLinearLayout(Qt.Vertical)
-    layout.setSpacing(3)
-    
-    self.setLayout(layout)
+    # no config
+    self.setHasConfigurationInterface(False)
+    self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
 
-    self.setContentsMargins(0, 0, 0, 0)
-    self.layout().setContentsMargins(0, 0, 0, 0)
-    self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
-    self.layout().addItem(self.icon)
+    # setup ui
+    self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+#    KColorScheme(QPalette.Active, KColorScheme.View, Plasma.Theme.defaultTheme().colorScheme())
+
+    # main vertical layout
+    QGraphicsLinearLayout(Qt.Vertical, self.applet)
+#    self.setLayout(QGraphicsLinearLayout(Qt.Vertical)) #, self))
+    self.layout().setSpacing(3)
+
+    # header (logo)
+    headerLayout = QGraphicsLinearLayout(Qt.Horizontal)
+    icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
+    icon.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+    icon.setPreferredSize(32, 32)
+    label1 = Plasma.Label(self.applet)
+    label1.setText('<html><b>New activity</b></html>')
+    headerLayout.addItem(label1)
+    headerLayout.addItem(icon)
+    self.layout().addItem(headerLayout)
+    
+    # new activity form
+
+    newActivityFrame = Plasma.Frame(self.applet)
+    newActivityLayout = QGraphicsLinearLayout(Qt.Vertical, newActivityFrame)
+    projects = Plasma.ComboBox(newActivityFrame)
+    projects.addItem('Cayox')
+    projects.addItem('UK Wells')
+    newActivityLayout.addItem(projects)
+    hours = Plasma.LineEdit(newActivityFrame)
+    newActivityLayout.addItem(hours)
+    description = Plasma.TextEdit(newActivityFrame)
+    newActivityLayout.addItem(description)
+    sendButton = Plasma.PushButton(newActivityFrame)
+    sendButton.setText('Add!')
+    newActivityLayout.addItem(sendButton)
+    newActivityFrame.setFrameShadow(Plasma.Frame.Sunken)
+    self.layout().addItem(newActivityFrame)
+
+
+    # recent activities
+    label2 = Plasma.Label(self.applet)
+    label2.setText('<html><b>Recent activities</b></html>')
+    self.layout().addItem(label2)
+
+    for i in xrange(3):
+      frame = Plasma.Frame(self.applet)
+      frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+      layout = QGraphicsLinearLayout(Qt.Vertical, frame)
+      label = Plasma.Label()
+      label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+      label.setText('<html><b>Abcdef 123</b><br/>Lal la lal</html>')
+      layout.addItem(label)
+      self.layout().addItem(frame)
+
+#    flashLayout = QGraphicsLinearLayout(Qt.Horizontal, self)
+#    self.label = Plasma.FlashingLabel()#self)
+#    self.label.setAutohide(True)
+#    self.label.setMinimumSize(0, 20)
+#    self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    
+    
+#    self.setContentsMargins(0, 0, 0, 0)
+#    self.layout().setContentsMargins(0, 0, 0, 0)
+#    self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
+#    self.layout().addItem(self.icon)
     #self.resize( self.icon.iconSize() )
     #self.setAcceptDrops(True)
-    self.entries = []
+#    self.entries = []
     #gc = self.config()
     #(count, bummer) = gc.readEntry("count", QVariant(0) ).toInt()
     #if count > 0:
@@ -72,18 +133,28 @@ class RubytimeApplet(plasmascript.Applet):
     #		if lst[3] == "True":
     #			case = True
     #		self.entries.append( [lst[0], lst[1], wildcard, case] )
-    self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
+#    self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
     # self.resize(128, 128)
+
+    # initial activities fetch
+    self.initialTimer = QTimer(self)
+    self.connect(self.initialTimer, SIGNAL("timeout()"), self.initialActivitiesFetch)
+    self.initialTimer.start(2 * 1000)
+
+    # setup activities updates
+    self.updateTimer = QTimer(self)
+    self.connect(self.updateTimer, SIGNAL("timeout()"), self.updateActivities)
+    self.updateTimer.start(10 * 60 * 1000)
 
     # setup morning notifications
     self.morningTimer = QTimer(self)
     self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
-    self.morningTimer.start(10000)
+    self.morningTimer.start(10 * 1000)
 
-    # setup morning notifications
+    # setup afternoon notifications
     self.afternoonTimer = QTimer(self)
     self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
-    self.afternoonTimer.start(20000)
+    self.afternoonTimer.start(20 * 1000)
     pass
 
   def contextualActions(self):
@@ -93,6 +164,15 @@ class RubytimeApplet(plasmascript.Applet):
     pass
 
   def constraintsEvent(self, constraints):
+    pass
+
+  def initialActivitiesFetch(self):
+    self.initialTimer.stop()
+    print self.api.getActivities()
+    pass
+
+  def updateActivities(self):
+    print self.api.getActivities()
     pass
 
   def morningCheck(self):
@@ -125,7 +205,7 @@ class RubytimeApplet(plasmascript.Applet):
     pass
 
   def sendNotification(self, body):
-    self.notifications.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
+#    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 2000, dbus_interface='org.kde.VisualNotifications')
     #self.notifications.Notify('rubytime-plasmoid', 0, str(random.random() * 10), 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
     pass
 

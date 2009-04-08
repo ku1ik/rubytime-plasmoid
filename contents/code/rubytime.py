@@ -2,18 +2,17 @@ import urllib2
 
 class RubytimeSession:
 
-  def __init__(self, username, passwd):
-    self.url = 'rt.llp.pl'
-    self.username, self.password = username, passwd
+  def __init__(self, url, username, passwd):
+    self.url, self.username, self.password = url, username, passwd
     pass
 
-  def get_activities(self):
-    print self.make_request('/activities')
+  def getActivities(self):
+    # print self.makeRequest('/activities')
     pass
 
-  def make_request(self, path):
+  def makeRequest(self, path):
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, self.url + path, self.username, self.password)
+    passman.add_password(None, self.url.split('http://')[1] + path, self.username, self.password)
     # because we have put None at the start it will always
     # use this username/password combination for  urls
     # for which `theurl` is a super-url
@@ -25,7 +24,7 @@ class RubytimeSession:
     # Make sure not to include the protocol in with the URL, or
     # HTTPPasswordMgrWithDefaultRealm will be very confused.
     # You must (of course) use it when fetching the page though.
-    pagehandle = urllib2.urlopen('http://' + self.url)
+    pagehandle = urllib2.urlopen(self.url)
     # authentication is now handled automatically for us
     return pagehandle.read()
   
