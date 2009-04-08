@@ -24,8 +24,8 @@ from PyKDE4.kdeui import *
 from PyKDE4.kio import *
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
-from editor import Editor
-# import os
+# from editor import Editor
+import random
 import dbus
 
 class RubytimeApplet(plasmascript.Applet):
@@ -65,6 +65,17 @@ class RubytimeApplet(plasmascript.Applet):
     self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
     self.resize(128, 128)
 
+    # setup morning notifications
+    self.morningTimer = QTimer(self)
+    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
+    self.morningTimer.start(10000)
+
+    # setup morning notifications
+    self.afternoonTimer = QTimer(self)
+    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
+    self.afternoonTimer.start(20000)
+    pass
+
   def contextualActions(self):
     return []
 
@@ -72,6 +83,16 @@ class RubytimeApplet(plasmascript.Applet):
     pass
 
   def constraintsEvent(self, constraints):
+    pass
+
+  def morningCheck(self):
+    self.morningTimer.stop()
+    self.sendNotification("<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>")
+    pass
+
+  def afternoonCheck(self):
+    self.afternoonTimer.stop()
+    self.sendNotification("<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>")
     pass
 
   #def createConfigurationInterface(self, parent):
@@ -90,11 +111,12 @@ class RubytimeApplet(plasmascript.Applet):
   #	dialog.exec_()
   
   def notifyMe(self):
-    self.sendNotification('Please don\'t forget to add today\'s activities to Rubytime!')
+    self.sendNotification('Icon clicked, yay!')
     pass
 
   def sendNotification(self, body):
-    self.notifications.Notify('rubytime-plasmoid', 0, 'someid', 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
+    self.notifications.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
+    #self.notifications.Notify('rubytime-plasmoid', 0, str(random.random() * 10), 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
     pass
 
   def mousePressEvent(self, event):
