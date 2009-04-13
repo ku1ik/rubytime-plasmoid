@@ -26,7 +26,12 @@ from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
 # from editor import Editor
 import dbus
+import os
+import sys
+sys.path.append(os.path.dirname(__file__))
 import rubytime
+import workers
+
 
 class RubytimeApplet(plasmascript.Applet):
   def __init__(self, parent, args = None):
@@ -37,8 +42,8 @@ class RubytimeApplet(plasmascript.Applet):
     self.recentActivities = []
 
     # create session
-    self.api = rubytime.RubytimeSession(self.cfg.readEntry('hostname', 'http://rt.llp.pl'),
-                                        self.cfg.readEntry('username', 'test'), self.cfg.readEntry('password', 'test123'))
+    self.api = rubytime.RubytimeSession(str(self.cfg.readEntry('hostname', 'http://localhost:4000')),
+                                        str(self.cfg.readEntry('username', 'dev1')), str(self.cfg.readEntry('password', 'password')))
 
     # setup notifications proxy
     self.sessionBus = dbus.SessionBus()
@@ -47,108 +52,164 @@ class RubytimeApplet(plasmascript.Applet):
     # no config
     self.setHasConfigurationInterface(False)
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
+    self.theme = Plasma.Svg(self)
+    self.theme.setImagePath("widgets/background")
+    self.setBackgroundHints(Plasma.Applet.DefaultBackground)
 
+    # build layout
+    self.createLayout()
+
+    # setup timers
+    self.setupTimers()
+    
+#    self.initialFetch()
+
+
+  def createLayout(self):
     # setup ui
     self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+#    self.setPreferredSize(300, 500)
+    self.setMinimumSize(250, 400)
 #    KColorScheme(QPalette.Active, KColorScheme.View, Plasma.Theme.defaultTheme().colorScheme())
 
     # main vertical layout
-    QGraphicsLinearLayout(Qt.Vertical, self.applet)
-    self.layout().setSpacing(3)
+    self.layout = QGraphicsLinearLayout(Qt.Vertical)
+    self.layout.setSpacing(3)
 
-    # header (logo)
+    # header (flash + logo)
     headerLayout = QGraphicsLinearLayout(Qt.Horizontal)
-    headerLayout.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-    headerLayout.setPreferredSize(300, 25)
+#    headerLayout.setPreferredSize(300, 25)
     headerLayout.setMinimumSize(200, 25)
+#    headerLayout.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
     qicon = QIcon("contents/logo-small.png")
     # qicon.resize(111, 25)
     icon = KIcon(qicon)
     #iconWidget = QGraphicsProxyWidget()
     #iconWidget.setWidget(QGraphicsWidget(icon))
     # icon.resize(111, 25)
-    iconWidget = Plasma.IconWidget(icon, "", self.applet)
+    label = Plasma.Label()
+    label.setText("...")
+    label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
+    headerLayout.addItem(label)
+    iconWidget = Plasma.IconWidget(icon, "")
     iconWidget.setPreferredSize(111, 25)
     iconWidget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-    label1 = Plasma.Label(self.applet)
-    label1.setText('<html><b>New activity</b></html>')
-    headerLayout.addItem(label1)
     headerLayout.addItem(iconWidget)
-    self.layout().addItem(headerLayout)
-    
+    self.layout.addItem(headerLayout)
+
+    # new activity label
+
+    label = Plasma.Label()
+    label.setText('<html><b>New activity</b></html>')
+    self.layout.addItem(label)
+
+#    a = QGraphicsWidget()
+#    b = QGraphicsLinearLayout(Qt.Vertical, a)
+#    b.addItem(Plasma.BusyWidget())
+#    layout.addItem(a)
     # new activity form
 
-    newActivityFrame = Plasma.Frame(self.applet)
+    newActivityFrame = Plasma.Frame()
+    newActivityFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     newActivityLayout = QGraphicsLinearLayout(Qt.Vertical, newActivityFrame)
+#    newActivityLayout.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
 
     # project name
-    projectNameLayout = QGraphicsLinearLayout(Qt.Horizontal, newActivityLayout)
-    label = Plasma.Label(self.applet)
+    projectNameLayout = QGraphicsLinearLayout(Qt.Horizontal)
+#    grid = QGraphicsGridLayout()
+    label = Plasma.Label()
     label.setText('<html><b>Project</b></html>')
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     projectNameLayout.addItem(label)
-    projectNameCombo = Plasma.ComboBox(newActivityFrame)
+#    grid.addItem(label, 0, 0)
+#    projectNameLayout.setAlignment(label, Qt.AlignRight)
+    projectNameCombo = Plasma.ComboBox()
     projectNameCombo.addItem('Cayox')
     projectNameCombo.addItem('UK Wells')
     projectNameLayout.addItem(projectNameCombo)
+#    grid.addItem(projectNameCombo, 0, 1)
     newActivityLayout.addItem(projectNameLayout)
+#    newActivityLayout.addItem(grid)
 
     # activity date
-    dateLayout = QGraphicsLinearLayout(Qt.Horizontal, newActivityLayout)
-    label = Plasma.Label(self.applet)
+    dateLayout = QGraphicsLinearLayout(Qt.Horizontal)
+    label = Plasma.Label()
     label.setText('<html><b>Date</b></html>')
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     dateLayout.addItem(label)
-    date = QDateEdit()
-    dateWidget = QGraphicsProxyWidget(newActivityFrame)
+    date = KDateWidget() #QDateEdit()
+    dateWidget = QGraphicsProxyWidget()
     dateWidget.setWidget(date)
     dateLayout.addItem(dateWidget)
     newActivityLayout.addItem(dateLayout)
 
     # hours worked
-    hoursLayout = QGraphicsLinearLayout(Qt.Horizontal, newActivityLayout)
-    label = Plasma.Label(self.applet)
+    hoursLayout = QGraphicsLinearLayout(Qt.Horizontal)
+    label = Plasma.Label()
     label.setText('<html><b>Hours</b></html>')
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     hoursLayout.addItem(label)
-    hours = Plasma.LineEdit(newActivityFrame)
+    hours = Plasma.LineEdit()
     hoursLayout.addItem(hours)
     newActivityLayout.addItem(hoursLayout)
 
-    description = Plasma.TextEdit(newActivityFrame)
+    description = Plasma.TextEdit()
     newActivityLayout.addItem(description)
-    sendButton = Plasma.PushButton(newActivityFrame)
+
+    # button
+    sendButton = Plasma.PushButton()
     sendButton.setText('Add!')
     newActivityLayout.addItem(sendButton)
     newActivityFrame.setFrameShadow(Plasma.Frame.Sunken)
-    self.layout().addItem(newActivityFrame)
+    self.layout.addItem(newActivityFrame)
+    self.connect(sendButton, SIGNAL("clicked()"), self.addActivity)
+
 
 
     # recent activities
-    label2 = Plasma.Label(self.applet)
-    label2.setText('<html><b>Recent activities</b></html>')
-    self.layout().addItem(label2)
+
+    label = Plasma.Label()
+    label.setText('<html><b>Recent activities</b></html>')
+#    label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+#    label.setContentsMargins(50, 50, 50, 50)
+    self.layout.addItem(label)
+
+#    activities = QGraphicsWidget()
+#    activities.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+#    recentLayout = QGraphicsLinearLayout(Qt.Vertical, activities)
+#    recentLayout.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    #recentLayout.setContentsMargins(0, 0, 0, 0)
 
     for i in xrange(3):
-      frame = Plasma.Frame(self.applet)
-      frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-      layout = QGraphicsLinearLayout(Qt.Vertical, frame)
-      label = Plasma.Label(self.applet)
-      label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-      label.setText('<html><b>Abcdef 123</b><br/>Lal la lal</html>')
-      layout.addItem(label)
-      self.layout().addItem(frame)
+      frame = Plasma.Frame()
+#      frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+      frameLayout = QGraphicsLinearLayout(Qt.Vertical, frame)
+      label = Plasma.Label()
+#      label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+      label.setText('<html><b>Friday, 10 April - Cayox, 8h</b><br/>- implemented something<br/>- updated demo server</html>')
+      self.label = label
+      frameLayout.addItem(label)
+      self.layout.addItem(frame)
+
+#    scrollWidget = Plasma.ScrollWidget()
+#    scrollWidget.setWidget(activities)
+#    layout.addItem(activities)
+
+    self.setLayout(self.layout)
+#    self.resize(250, 300)
 
 #    flashLayout = QGraphicsLinearLayout(Qt.Horizontal, self)
 #    self.label = Plasma.FlashingLabel()#self)
 #    self.label.setAutohide(True)
 #    self.label.setMinimumSize(0, 20)
 #    self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    
-    
+
+
 #    self.setContentsMargins(0, 0, 0, 0)
 #    self.layout().setContentsMargins(0, 0, 0, 0)
 #    self.icon = Plasma.IconWidget(KIcon("folder-red"), "", self.applet)
@@ -173,13 +234,15 @@ class RubytimeApplet(plasmascript.Applet):
     #		if lst[3] == "True":
     #			case = True
     #		self.entries.append( [lst[0], lst[1], wildcard, case] )
-#    self.connect(self.icon, SIGNAL("clicked()"), self.notifyMe)
     # self.resize(128, 128)
+    pass
 
+  def setupTimers(self):
     # initial activities fetch
     self.initialTimer = QTimer(self)
-    self.connect(self.initialTimer, SIGNAL("timeout()"), self.initialActivitiesFetch)
-    self.initialTimer.start(2 * 1000)
+    self.connect(self.initialTimer, SIGNAL("timeout()"), self.initialFetch)
+    self.initialTimer.setSingleShot(True)
+    self.initialTimer.start(1 * 1000)
 
     # setup activities updates
     self.updateTimer = QTimer(self)
@@ -195,24 +258,31 @@ class RubytimeApplet(plasmascript.Applet):
     self.afternoonTimer = QTimer(self)
     self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
     self.afternoonTimer.start(20 * 1000)
-    pass
 
   def contextualActions(self):
     return []
 
-  def paintInterface(self, painter, option, rect):
-    pass
+#  def paintInterface(self, painter, option, rect):
+#    pass
 
-  def constraintsEvent(self, constraints):
-    pass
+#  def constraintsEvent(self, constraints):
+#    pass
 
-  def initialActivitiesFetch(self):
-    self.initialTimer.stop()
-    print self.api.getActivities()
+  def initialFetch(self):
+    self.updateActivities()
+    self.updateProjects()
+
+  def setActivities(self, activities):
     pass
 
   def updateActivities(self):
-    print self.api.getActivities()
+    self.applet.setBusy(True)
+    self.updateActivitiesThread = workers.ActivitiesWorker(self)
+    self.connect(self.updateActivitiesThread, SIGNAL("finished()"), self.workerFinished)
+#    self.connect(self.updateActivitiesThread, SIGNAL("terminated()"), self.workerFinished)
+    self.updateActivitiesThread.start()
+
+  def updateProjects(self):
     pass
 
   def morningCheck(self):
@@ -240,17 +310,25 @@ class RubytimeApplet(plasmascript.Applet):
   #	self.createConfigurationInterface(dialog)
   #	dialog.exec_()
   
-  def notifyMe(self):
-    self.sendNotification('Icon clicked, yay!')
+  def addActivity(self):
+#    self.applet.setBusy(True)
+#    self.addActivityThread = workers.AddActivityWorker(self, { 'project_id': 1, 'date': '2009-04-13', 'hours': '', 'comments': '' })
+#    self.connect(self.addActivityThread, SIGNAL("finished()"), self.workerFinished)
+#    self.connect(self.addActivityThread, SIGNAL("terminated()"), self.workerFinished)
+#    self.addActivityThread.start()
     pass
+
+  def workerFinished(self):
+    self.applet.setBusy(False)
+#    self.updateActivitiesThread = None
 
   def sendNotification(self, body):
 #    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 2000, dbus_interface='org.kde.VisualNotifications')
     #self.notifications.Notify('rubytime-plasmoid', 0, str(random.random() * 10), 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
     pass
 
-  def mousePressEvent(self, event):
-    pass
+#  def mousePressEvent(self, event):
+#    pass
 
   def configAccepted(self):
     self.entries = self.editor.exportList()
@@ -285,28 +363,28 @@ class RubytimeApplet(plasmascript.Applet):
   def shouldConserveResources(self):
     return True
 
-  def dragEnterEvent(self, e):
-    e.accept()
-
-  def dropEvent(self, e):
-    t = e.mimeData().text().split("\n")
-    for src in t:
-      if src.isEmpty():
-        continue
-      dest = ""
-      for entry in self.entries:
-        format = QRegExp.RegExp2
-        if entry[2]:
-          format = QRegExp.Wildcard
-        regex = QRegExp(entry[0], Qt.CaseSensitive, format)
-        if not regex.isValid():
-          continue
-        if regex.indexIn(src) > -1:
-          dest = entry[1]
-          break
-      if QString(dest).isEmpty():
-        continue
-      KIO.move( KUrl(src), KUrl(dest) )
+#  def dragEnterEvent(self, e):
+#    e.accept()
+#
+#  def dropEvent(self, e):
+#    t = e.mimeData().text().split("\n")
+#    for src in t:
+#      if src.isEmpty():
+#        continue
+#      dest = ""
+#      for entry in self.entries:
+#        format = QRegExp.RegExp2
+#        if entry[2]:
+#          format = QRegExp.Wildcard
+#        regex = QRegExp(entry[0], Qt.CaseSensitive, format)
+#        if not regex.isValid():
+#          continue
+#        if regex.indexIn(src) > -1:
+#          dest = entry[1]
+#          break
+#      if QString(dest).isEmpty():
+#        continue
+#      KIO.move( KUrl(src), KUrl(dest) )
 
 
 def CreateApplet(parent):
