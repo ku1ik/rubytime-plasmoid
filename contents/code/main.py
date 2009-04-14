@@ -30,7 +30,7 @@ import os
 import sys
 sys.path.append(os.path.dirname(__file__))
 import rubytime
-import workers
+#import workers
 
 
 class RubytimeApplet(plasmascript.Applet):
@@ -43,7 +43,8 @@ class RubytimeApplet(plasmascript.Applet):
 
     # create session
     self.api = rubytime.RubytimeSession(str(self.cfg.readEntry('hostname', 'http://localhost:4000')),
-                                        str(self.cfg.readEntry('username', 'dev1')), str(self.cfg.readEntry('password', 'password')))
+                                        str(self.cfg.readEntry('username', 'dev1')),
+                                        str(self.cfg.readEntry('password', 'password')), self)
 
     # setup notifications proxy
     self.sessionBus = dbus.SessionBus()
@@ -277,10 +278,11 @@ class RubytimeApplet(plasmascript.Applet):
 
   def updateActivities(self):
     self.applet.setBusy(True)
-    self.updateActivitiesThread = workers.ActivitiesWorker(self)
-    self.connect(self.updateActivitiesThread, SIGNAL("finished()"), self.workerFinished)
+#    self.updateActivitiesThread = workers.ActivitiesWorker(self)
+#    self.connect(self.updateActivitiesThread, SIGNAL("finished()"), self.workerFinished)
 #    self.connect(self.updateActivitiesThread, SIGNAL("terminated()"), self.workerFinished)
-    self.updateActivitiesThread.start()
+#    self.updateActivitiesThread.start()
+    self.api.getActivities()
 
   def updateProjects(self):
     pass
