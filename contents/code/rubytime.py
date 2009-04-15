@@ -14,10 +14,10 @@ class RubytimeSession:
     pass
 
   def getProjects(self):
-    return self.makeRequest('/projects.json')
+    return self.makeRequest('/projects')
 
   def getActivities(self):
-    return self.makeRequest('/activities.json')
+    return self.makeRequest('/activities')
 
   def addActivity(self, activity):
     data = urllib.urlencode({ 'activity[date]': activity['date'], 'activity[project_id]': activity['project_id'],
@@ -26,15 +26,39 @@ class RubytimeSession:
 
   def makeRequest(self, path, data=None):
     if data:
+#      job.addMetaData("content-type", "application/x-www-form-urlencoded")
       pass
     else:
-      job = KIO.storedGet(KUrl(self.url + path))
-      job.addMetaData("content-type", "application/x-www-form-urlencoded")
+#      job = KIO.storedGet(KUrl(self.url + path), KIO.Reload, KIO.HideProgressInfo)
+#      job = KIO.storedGet(KUrl("http://kill:karnuf@sickill.net/posts"), KIO.Reload, KIO.HideProgressInfo)
+      # we want JSON
+      job.addMetaData("accept", "application/json, text/javascript, */*")
+      job.addMetaData("cookie", "")
+      # auth
+      base64string = base64.encodestring('%s:%s' % (self.username, self.password))[:-1]
+      authheader =  "Basic %s" % base64string
+#      job.addMetaData("Authorization", authheader)
+      # connect to result()
       QObject.connect(job, SIGNAL("result(KJob*)"), self.jobFinished)
     return [False, None]
 
   def jobFinished(self, job):
-    print "job finished", job.error(), job.data()
+    print "job finished"
+    err = job.error()
+    print job, job.url().path(), err
+    print job.errorString()
+    print job.errorText()
+    print job.data()
+
+    if err > 0:
+      if err == KIO.ERR_COULD_NOT_CONNECT:
+        print "connection problem"
+      else:
+        print "other error"
+
+
+
+
 
   def makeRequest2(self, path, data=None):
     base64string = base64.encodestring('%s:%s' % (self.username, self.password))[:-1]

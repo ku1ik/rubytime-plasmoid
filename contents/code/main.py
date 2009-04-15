@@ -61,9 +61,9 @@ class RubytimeApplet(plasmascript.Applet):
     self.createLayout()
 
     # setup timers
-    self.setupTimers()
+#    self.setupTimers()
     
-#    self.initialFetch()
+    self.initialFetch()
 
 
   def createLayout(self):
