@@ -22,26 +22,24 @@ class RubytimeSession:
   def addActivity(self, activity):
     data = urllib.urlencode({ 'activity[date]': activity['date'], 'activity[project_id]': activity['project_id'],
                               'activity[hours]': activity['hours'], 'activity[comments]': activity['comments'] })
-    return self.makeRequest('/activities.json', data)
+    return self.makeRequest('/activities', data)
 
   def makeRequest(self, path, data=None):
+    url = (self.url + path).replace("://", "://" + self.username + "@")
+    if url.find("?") == -1:
+      url += "?auth=basic"
+    else:
+      url += "&auth=basic"
+    print url
+
     if data:
-#      job.addMetaData("content-type", "application/x-www-form-urlencoded")
       pass
     else:
-#      job = KIO.storedGet(KUrl(self.url + path), KIO.Reload, KIO.HideProgressInfo)
-#      job = KIO.storedGet(KUrl("http://kill:karnuf@sickill.net/posts"), KIO.Reload, KIO.HideProgressInfo)
-      job = KIO.storedGet(KUrl("http://dev1:password@localhost:4000/activities"), KIO.Reload, KIO.HideProgressInfo)
-      # we want JSON
-      job.addMetaData("accept", "application/json, text/javascript, */*")
-      job.addMetaData("cookies", "none")
-#      job.addMetaData("no-auth-prompt", "true")
-      # auth
-#      base64string = base64.encodestring('%s:%s' % (self.username, self.password))[:-1]
-#      authheader =  "Basic %s" % base64string
-#      job.addMetaData("auth", authheader)
-      # connect to result()
-      QObject.connect(job, SIGNAL("result(KJob*)"), self.jobFinished)
+      job = KIO.storedGet(KUrl(url), KIO.Reload, KIO.HideProgressInfo)
+    # we want JSON
+    job.addMetaData("accept", "application/json, text/javascript, */*")
+    job.addMetaData("cookies", "none")
+    QObject.connect(job, SIGNAL("result(KJob*)"), self.jobFinished)
     return [False, None]
 
   def jobFinished(self, job):
@@ -60,9 +58,8 @@ class RubytimeSession:
     elif job.isErrorPage():
       print "some error page"
     else:
+      print "success"
       print job.data()
-
-
 
 
 
