@@ -17,6 +17,7 @@
 #   Free Software Foundation, Inc.,
 #   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyKDE4.kdecore import *
@@ -24,7 +25,6 @@ from PyKDE4.kdeui import *
 from PyKDE4.kio import *
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
-# from editor import Editor
 import dbus
 import os
 import sys
@@ -33,6 +33,9 @@ import urllib
 sys.path.append(os.path.dirname(__file__))
 import simplejson
 from widgets import *
+import configgeneral
+import confignotifications
+from config import RubytimeConfig
 
 
 class RubytimeApplet(plasmascript.Applet):
@@ -40,10 +43,7 @@ class RubytimeApplet(plasmascript.Applet):
     plasmascript.Applet.__init__(self, parent)
 
   def init(self):
-    self.cfg = self.config()
-
-    self.url = str(self.cfg.readEntry('url', 'http://localhost:4000'))
-    self.username = str(self.cfg.readEntry('username', 'dev1'))
+    self.cfg = RubytimeConfig(self.config())
 
     self.activities = []
     self.activitiesLabels = []
@@ -53,8 +53,7 @@ class RubytimeApplet(plasmascript.Applet):
     self.sessionBus = dbus.SessionBus()
     self.notificationsProxy = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
 
-    # no config
-    self.setHasConfigurationInterface(False)
+    self.setHasConfigurationInterface(True) # it doesn't matter however
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
     self.theme = Plasma.Svg(self)
     self.theme.setImagePath("widgets/background")
@@ -63,18 +62,33 @@ class RubytimeApplet(plasmascript.Applet):
     # build layout
     self.createLayout()
 
+    # setup activities updates
+    self.updateTimer = QTimer(self)
+    self.connect(self.updateTimer, SIGNAL("timeout()"), self.fetchProjects)
+    
+    # conditionaly enable widget and timers
+    self.resetWidget(self.cfg.isValid())
+
+
+  def resetWidget(self, isEnabled):
+    self.setConfigurationRequired(not isEnabled, "")
+    self.updateTimer.stop()
+    if isEnabled:
+      self.fetchProjects()
+      self.updateTimer.start(10 * 60 * 1000)
+
     # setup timers
-    self.setupTimers()
+#    self.setupTimers()
 
     # initial fetch
-    self.fetchProjects()
-
+  
 
   def createLayout(self):
     # setup ui
     self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-#    self.setPreferredSize(300, 500)
-    self.setMinimumSize(250, 400)
+    self.setPreferredSize(350, 500)
+    self.setMinimumSize(330, 420)
+
 
     # main vertical layout
     self.layout = QGraphicsLinearLayout(Qt.Vertical)
@@ -82,14 +96,14 @@ class RubytimeApplet(plasmascript.Applet):
 
     # header (flash + logo)
     headerLayout = QGraphicsLinearLayout(Qt.Horizontal)
-#    headerLayout.setPreferredSize(300, 25)
-    headerLayout.setMinimumSize(200, 25)
-#    headerLayout.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
     label = Plasma.Label()
-    label.setText("...")
+    label.setText("")
     label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
     headerLayout.addItem(label)
-    pixmapWidget = QGraphicsPixmapWidget(QPixmap("contents/logo-small.png"))
+    pixmap = QPixmap(os.path.dirname(__file__) + "/../logo-small.png")
+    pixmapWidget = QGraphicsPixmapWidget(pixmap)
+    pixmapWidget.setMinimumSize(pixmap.width(), pixmap.height())
+    pixmapWidget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
     headerLayout.addItem(pixmapWidget)
     self.layout.addItem(headerLayout)
 
@@ -101,10 +115,9 @@ class RubytimeApplet(plasmascript.Applet):
 
     # new activity form
 
-    newActivityFrame = Plasma.Frame()
+    newActivityFrame = Plasma.Frame(self.applet)
     newActivityFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     newActivityLayout = QGraphicsLinearLayout(Qt.Vertical, newActivityFrame)
-#    newActivityLayout.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     # project name
     projectNameLayout = QGraphicsLinearLayout(Qt.Horizontal)
@@ -129,7 +142,7 @@ class RubytimeApplet(plasmascript.Applet):
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     dateLayout.addItem(label)
-    date = KDateWidget() #QDateEdit()
+    date = KDateWidget()
     date.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     date.setAttribute(Qt.WA_NoSystemBackground)
     dateWidget = QGraphicsProxyWidget()
@@ -169,17 +182,14 @@ class RubytimeApplet(plasmascript.Applet):
 
     for i in xrange(3):
       frame = Plasma.Frame()
-#      frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
       frameLayout = QGraphicsLinearLayout(Qt.Vertical, frame)
       label = Plasma.Label()
-#      label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-#      label.setText('<html><b>Friday, 10 April - Cayox, 8h</b><br/>- implemented something<br/>- updated demo server</html>')
       frameLayout.addItem(label)
       self.layout.addItem(frame)
       self.activitiesLabels.append(label)
 
     self.setLayout(self.layout)
-#    self.resize(250, 300)
+    # self.resize(350, 500)
 
 
 #    flashLayout = QGraphicsLinearLayout(Qt.Horizontal, self)
@@ -208,33 +218,26 @@ class RubytimeApplet(plasmascript.Applet):
     #			case = True
     #		self.entries.append( [lst[0], lst[1], wildcard, case] )
     # self.resize(128, 128)
-    pass
 
   def setupTimers(self):
-    # setup activities updates
-    self.updateTimer = QTimer(self)
-    self.connect(self.updateTimer, SIGNAL("timeout()"), self.updateActivities)
-    self.updateTimer.start(10 * 60 * 1000)
-
+    pass
     # setup morning notifications
-    self.morningTimer = QTimer(self)
-    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
-    self.morningTimer.start(10 * 1000)
+#    self.morningTimer = QTimer(self)
+#    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
+#    self.morningTimer.start(10 * 1000)
 
     # setup afternoon notifications
-    self.afternoonTimer = QTimer(self)
-    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
-    self.afternoonTimer.start(20 * 1000)
-
-#  def contextualActions(self):
-#    return []
+#    self.afternoonTimer = QTimer(self)
+#    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
+#    self.afternoonTimer.start(20 * 1000)
 
 #  def constraintsEvent(self, constraints):
 #    pass
 
 
   def fetchActivities(self):
-    return self.makeRequest('/activities')
+#    print int(self.cfg.activitiesNumber)
+    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber }))
 
 
   def fetchProjects(self):
@@ -250,7 +253,7 @@ class RubytimeApplet(plasmascript.Applet):
 
   def makeRequest(self, path, data=None):
     self.applet.setBusy(True)
-    url = (self.url + path).replace("://", "://" + self.username + "@")
+    url = str((self.cfg.instanceURL + path).replace("://", "://" + self.cfg.username + "@"))
     if url.find("?") == -1:
       url += "?auth=basic"
     else:
@@ -292,6 +295,7 @@ class RubytimeApplet(plasmascript.Applet):
 
   def updateActivities(self, activities):
     self.activities = activities
+    print activities
     for i in xrange(len(self.activitiesLabels)):
       activity, label = activities[i], self.activitiesLabels[i]
       d = activity["date"].split("-")
@@ -326,14 +330,6 @@ class RubytimeApplet(plasmascript.Applet):
   def showFlash(self, msg):
     print "flash: " + msg
 
-  #def createConfigurationInterface(self, parent):
-  #	self.editor = Editor(self.entries)
-  #	p = parent.addPage(self.editor, ki18n("Rules").toString() )
-  #	p.setIcon( KIcon("view-filter") )
-  #	self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
-  #	self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
-  #	pass
-
 
   def sendNotification(self, body):
 #    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 2000, dbus_interface='org.kde.VisualNotifications')
@@ -341,35 +337,49 @@ class RubytimeApplet(plasmascript.Applet):
     pass
 
 
+  def createConfigurationInterface(self, parent):
+    # create general page
+    self.configGeneralForm = QWidget()
+    self.configGeneral = configgeneral.Ui_form()
+    self.configGeneral.setupUi(self.configGeneralForm)
+    p = parent.addPage(self.configGeneralForm, ki18n("General").toString())
+    p.setIcon( KIcon("user-identity") )
+    # init general page
+    self.configGeneral.instanceURL.setText(self.cfg.instanceURL)
+    self.configGeneral.username.setText(self.cfg.username)
+
+    # create notifications page
+    self.configNotificationsForm = QWidget()
+    self.configNotifications = confignotifications.Ui_form()
+    self.configNotifications.setupUi(self.configNotificationsForm)
+    p = parent.addPage(self.configNotificationsForm, ki18n("General").toString())
+    p.setIcon( KIcon("preferences-desktop-notification") )
+    # init notifications page
+#    self.configNotifications.username.setText("jola")
+
+    # buttons
+    parent.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
+    self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
+    self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
+
+
+  def showConfigurationInterface(self):
+    dialog = KPageDialog()
+    dialog.setFaceType(KPageDialog.List)
+    self.createConfigurationInterface(dialog)
+    dialog.exec_()
+
+
   def configAccepted(self):
-    self.entries = self.editor.exportList()
-    gc = self.config()
-    gc.writeEntry("count", QVariant( len(self.entries) ) )
-    counter = 0
-    for entry in self.entries:
-      print entry
-
-      lst = QStringList( entry[0] )
-      lst.append( entry[1] )
-
-      if entry[2]:
-        a = "True"
-      else:
-        a = "False"
-      lst.append(a)
-
-      if entry[3]:
-        a = "True"
-      else:
-        a = "False"
-      lst.append(a)
-
-      gc.writeXdgListEntry("_" + str(counter), lst)
-      counter += 1
+    self.cfg.instanceURL = self.configGeneral.instanceURL.text()
+    self.cfg.username = self.configGeneral.username.text()
+    self.resetWidget(self.cfg.isValid())
     self.configDenied()
 
+
   def configDenied(self):
-    self.editor.deleteLater()
+    self.configGeneralForm.deleteLater()
+    self.configNotificationsForm.deleteLater()
 
 
 def CreateApplet(parent):
