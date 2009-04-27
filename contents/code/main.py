@@ -96,10 +96,7 @@ class RubytimeApplet(plasmascript.Applet):
 
     # header (flash + logo)
     headerLayout = QGraphicsLinearLayout(Qt.Horizontal)
-    label = Plasma.Label()
-    label.setText("")
-    label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
-    headerLayout.addItem(label)
+    headerLayout.addItem(Plasma.Label())
     pixmap = QPixmap(os.path.dirname(__file__) + "/../logo-small.png")
     pixmapWidget = QGraphicsPixmapWidget(pixmap)
     pixmapWidget.setMinimumSize(pixmap.width(), pixmap.height())
@@ -142,11 +139,11 @@ class RubytimeApplet(plasmascript.Applet):
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     dateLayout.addItem(label)
-    date = KDateWidget()
-    date.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-    date.setAttribute(Qt.WA_NoSystemBackground)
+    self.date = KDateWidget()
+    self.date.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    self.date.setAttribute(Qt.WA_NoSystemBackground)
     dateWidget = QGraphicsProxyWidget()
-    dateWidget.setWidget(date)
+    dateWidget.setWidget(self.date)
     dateLayout.addItem(dateWidget)
     newActivityLayout.addItem(dateLayout)
 
@@ -236,7 +233,6 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def fetchActivities(self):
-#    print int(self.cfg.activitiesNumber)
     return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber }))
 
 
@@ -245,10 +241,11 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def postActivity(self):
-    activity = {}
-    data = urllib.urlencode({ 'activity[date]': activity['date'], 'activity[project_id]': activity['project_id'],
-                              'activity[hours]': activity['hours'], 'activity[comments]': activity['comments'] })
-    return self.makeRequest('/activities', data)
+    projectName = self.projectNameCombo.text()
+    projectId = [id for id in self.projects if self.projects[id] == projectName][0]
+#    data = urllib.urlencode({ 'activity[date]': str(self.date.date().toString(Qt.ISODate), 'activity[project_id]': projectId,
+#                              'activity[hours]': activity['hours'], 'activity[comments]': activity['comments'] })
+#    return self.makeRequest('/activities', data)
 
 
   def makeRequest(self, path, data=None):
@@ -329,10 +326,12 @@ class RubytimeApplet(plasmascript.Applet):
 
   def showFlash(self, msg):
     print "flash: " + msg
+#    self.flash.flash(msg)
+    self.sendNotification(msg, 10000)
 
 
-  def sendNotification(self, body):
-#    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', body, [], [], 2000, dbus_interface='org.kde.VisualNotifications')
+  def sendNotification(self, body, timeout=0):
+    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', str(body), [], [], timeout, dbus_interface='org.kde.VisualNotifications')
     #self.notifications.Notify('rubytime-plasmoid', 0, str(random.random() * 10), 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
     pass
 

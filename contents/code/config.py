@@ -21,7 +21,7 @@ class RubytimeConfig(object):
     self.cfg.writeEntry('username', value.trimmed())
 
   def getActivitiesNumber(self):
-    return self.cfg.readEntry('activitiesNumber', QVariant(3)).toInt()[0]
+    return 3 #self.cfg.readEntry('activitiesNumber', QVariant(3)).toInt()[0]
 
   def setActivitiesNumber(self, value):
     self.cfg.writeEntry('activitiesNumber', QVariant(int(value)))
