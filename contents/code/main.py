@@ -154,14 +154,15 @@ class RubytimeApplet(plasmascript.Applet):
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     hoursLayout.addItem(label)
-    hours = Plasma.LineEdit()
+    self.hours = Plasma.LineEdit()
 #    hours.setMaximumSize(100, 10)
 #    hours.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored)
-    hoursLayout.addItem(hours)
+    hoursLayout.addItem(self.hours)
     newActivityLayout.addItem(hoursLayout)
 
-    description = Plasma.TextEdit()
-    newActivityLayout.addItem(description)
+    self.comments = Plasma.TextEdit()
+#    self.comments.nativeWidget().setAcceptRichText(False)
+    newActivityLayout.addItem(self.comments)
 
     # button
     sendButton = Plasma.PushButton()
@@ -232,23 +233,77 @@ class RubytimeApplet(plasmascript.Applet):
 #    pass
 
 
+  def resetForm(self):
+    self.hours.setText("")
+    self.comments.setText("")
+
+
+  def processResult(self, job):
+    self.applet.setBusy(False)
+    if job.error() > 0:
+      self.showFlash(job.errorString())
+      return False
+    return True
+
+
   def fetchActivities(self):
-    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber }))
+    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber }), self.fetchActivitiesResult)
+
+
+  def fetchActivitiesResult(self, job):
+    success = self.processResult(job)
+    if not success: return
+    if job.isErrorPage():
+      self.showFlash("Error while fetching activities.")
+      return
+    activitiesData = simplejson.JSONDecoder().decode(str(job.data()))
+    self.updateActivities(activitiesData)
 
 
   def fetchProjects(self):
-    return self.makeRequest('/projects')
+    return self.makeRequest('/projects', self.fetchProjectsResult)
+
+
+  def fetchProjectsResult(self, job):
+    success = self.processResult(job)
+    if not success: return
+    if job.isErrorPage():
+      self.showFlash("Error while fetching projects.")
+      return
+    projectsData = simplejson.JSONDecoder().decode(str(job.data()))
+    self.updateProjects(projectsData)
 
 
   def postActivity(self):
     projectName = self.projectNameCombo.text()
+    if not projectName:
+      return
     projectId = [id for id in self.projects if self.projects[id] == projectName][0]
-#    data = urllib.urlencode({ 'activity[date]': str(self.date.date().toString(Qt.ISODate), 'activity[project_id]': projectId,
-#                              'activity[hours]': activity['hours'], 'activity[comments]': activity['comments'] })
-#    return self.makeRequest('/activities', data)
+    date = self.date.date().toString(Qt.ISODate)
+    hours = self.hours.text().trimmed().toUtf8()
+    comments = self.comments.nativeWidget().toPlainText().trimmed().toUtf8()
+    data = urllib.urlencode({ 'activity[date]': date, 'activity[project_id]': projectId,
+                              'activity[hours]': hours, 'activity[comments]': comments })
+    return self.makeRequest('/activities', self.postActivityResult, data)
 
 
-  def makeRequest(self, path, data=None):
+  def postActivityResult(self, job):
+    success = self.processResult(job)
+    if not success: return
+    if job.isErrorPage():
+      data = QString(job.data())
+      if data.startsWith(QString("{")):
+        errors = simplejson.JSONDecoder().decode(str(data))
+        KMessageBox.error(None, "\n".join([e[0] for e in errors.values()]))
+      else:
+        self.showFlash("Error while adding activity.")
+      return
+    self.showFlash("Activity added successfully :)")
+    self.resetForm()
+    self.fetchActivities()
+
+
+  def makeRequest(self, path, resultsCallback, data=None):
     self.applet.setBusy(True)
     url = str((self.cfg.instanceURL + path).replace("://", "://" + self.cfg.username + "@"))
     if url.find("?") == -1:
@@ -256,29 +311,13 @@ class RubytimeApplet(plasmascript.Applet):
     else:
       url += "&auth=basic"
     if data:
-#    job.addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded" )
-      pass
+      job = KIO.storedHttpPost(QByteArray(data), KUrl(url), KIO.HideProgressInfo)
+      job.addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded" )
     else:
       job = KIO.storedGet(KUrl(url), KIO.Reload, KIO.HideProgressInfo)
-    # we want JSON
     job.addMetaData("accept", "application/json, text/javascript, */*")
     job.addMetaData("cookies", "none")
-    QObject.connect(job, SIGNAL("result(KJob*)"), self.requestResults)
-
-
-  def requestResults(self, job):
-    self.applet.setBusy(False)
-    if job.error() > 0:
-      self.showFlash(job.errorString())
-    elif job.isErrorPage():
-      self.showFlash("Error while connecting to Rubytime instance.")
-    else:
-      data = simplejson.JSONDecoder().decode(str(job.data()))
-      path = str(job.url().path())
-      if path.find("/activities") > -1:
-        self.updateActivities(data)
-      elif path.find("/projects") > -1:
-        self.updateProjects(data)
+    QObject.connect(job, SIGNAL("result(KJob*)"), resultsCallback)
 
 
   def updateProjects(self, projects):
@@ -292,7 +331,6 @@ class RubytimeApplet(plasmascript.Applet):
 
   def updateActivities(self, activities):
     self.activities = activities
-    print activities
     for i in xrange(len(self.activitiesLabels)):
       activity, label = activities[i], self.activitiesLabels[i]
       d = activity["date"].split("-")
@@ -301,6 +339,8 @@ class RubytimeApplet(plasmascript.Applet):
       projectName = self.projects[int(activity["project_id"])]
       time = self.formatMinutes(activity["minutes"])
       label.setText('<html><b>%s</b>: %s on %s</html>' % (dateFormatted, time, projectName))
+    if activities:
+      self.projectNameCombo.nativeWidget().setCurrentItem(self.projects[activities[0]['project_id']])
       
 
   def formatMinutes(self, minutes):
@@ -326,13 +366,11 @@ class RubytimeApplet(plasmascript.Applet):
 
   def showFlash(self, msg):
     print "flash: " + msg
-#    self.flash.flash(msg)
     self.sendNotification(msg, 10000)
 
 
   def sendNotification(self, body, timeout=0):
     self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', str(body), [], [], timeout, dbus_interface='org.kde.VisualNotifications')
-    #self.notifications.Notify('rubytime-plasmoid', 0, str(random.random() * 10), 'folder-red', 'Rubytime', body, [], [], 0, dbus_interface='org.kde.VisualNotifications')
     pass
 
 
