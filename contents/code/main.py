@@ -341,7 +341,7 @@ class RubytimeApplet(plasmascript.Applet):
       dateFormatted = date.strftime("%A, %d. %B")
       projectName = self.projects[int(activity["project_id"])]
       time = self.formatMinutes(activity["minutes"])
-      label.setText('<html><b>%s</b>: %s on %s</html>' % (dateFormatted, time, projectName))
+      label.setText('<html>%s: <b>%s</b> on <b>%s</b></html>' % (dateFormatted, time, projectName))
     if activities:
       self.projectNameCombo.nativeWidget().setCurrentItem(self.projects[activities[0]['project_id']])
       
@@ -357,22 +357,22 @@ class RubytimeApplet(plasmascript.Applet):
 
   def morningCheck(self):
     self.morningTimer.stop()
-    self.sendNotification("<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>")
+    self.sendNotification("<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>", 0)
     pass
 
 
   def afternoonCheck(self):
     self.afternoonTimer.stop()
-    self.sendNotification("<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>")
+    self.sendNotification("<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>", 0)
     pass
 
 
   def showFlash(self, msg):
     print "flash: " + msg
-    self.sendNotification(msg, 10000)
+    self.sendNotification(msg)
 
 
-  def sendNotification(self, body, timeout=0):
+  def sendNotification(self, body, timeout=10000):
 #    KNotification.event("rubytime-check",
 #      body,
 #      QPixmap(),
@@ -403,8 +403,8 @@ class RubytimeApplet(plasmascript.Applet):
     p = parent.addPage(self.configNotificationsForm, ki18n("General").toString())
     p.setIcon( KIcon("preferences-desktop-notification") )
     # init notifications page
-#    self.configNotifications.username.setText("jola")
-
+    # ...
+    
     # buttons
     parent.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
     self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
