@@ -51,7 +51,7 @@ class RubytimeApplet(plasmascript.Applet):
 
     # setup notifications proxy
     self.sessionBus = dbus.SessionBus()
-    self.notificationsProxy = self.sessionBus.get_object('org.kde.VisualNotifications', '/VisualNotifications')
+    self.notificationsProxy = self.sessionBus.get_object('org.kde.plasma', '/VisualNotifications')
 
     self.setHasConfigurationInterface(True) # it doesn't matter however
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
@@ -74,14 +74,17 @@ class RubytimeApplet(plasmascript.Applet):
     self.setConfigurationRequired(not isEnabled, "")
     self.updateTimer.stop()
     if isEnabled:
-      self.fetchProjects()
-      self.updateTimer.start(10 * 60 * 1000)
+      self.refresh()
 
     # setup timers
 #    self.setupTimers()
 
     # initial fetch
   
+  def refresh(self):
+    self.fetchProjects()
+    self.updateTimer.start(10 * 60 * 1000)
+
 
   def createLayout(self):
     # setup ui
@@ -97,7 +100,7 @@ class RubytimeApplet(plasmascript.Applet):
     # header (flash + logo)
     headerLayout = QGraphicsLinearLayout(Qt.Horizontal)
     headerLayout.addItem(Plasma.Label())
-    pixmap = QPixmap(os.path.dirname(__file__) + "/../logo-small.png")
+    pixmap = QPixmap(self.package().path() + "contents/images/logo-small.png")
     pixmapWidget = QGraphicsPixmapWidget(pixmap)
     pixmapWidget.setMinimumSize(pixmap.width(), pixmap.height())
     pixmapWidget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -370,8 +373,15 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def sendNotification(self, body, timeout=0):
+#    KNotification.event("rubytime-check",
+#      body,
+#      QPixmap(),
+#      None,
+#      KNotification.CloseOnTimeout,
+#      KComponentData("rubytime-plasmoid", "rubytime-plasmoid", KComponentData.SkipMainComponentRegistration)
+#      )
+
     self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', str(body), [], [], timeout, dbus_interface='org.kde.VisualNotifications')
-    pass
 
 
   def createConfigurationInterface(self, parent):
@@ -384,6 +394,7 @@ class RubytimeApplet(plasmascript.Applet):
     # init general page
     self.configGeneral.instanceURL.setText(self.cfg.instanceURL)
     self.configGeneral.username.setText(self.cfg.username)
+    self.configGeneral.activitiesNumber.setValue(self.cfg.activitiesNumber)
 
     # create notifications page
     self.configNotificationsForm = QWidget()
@@ -417,6 +428,11 @@ class RubytimeApplet(plasmascript.Applet):
   def configDenied(self):
     self.configGeneralForm.deleteLater()
     self.configNotificationsForm.deleteLater()
+
+  def contextualActions(self):
+    refresh = QAction(KIcon("view-refresh"), "Refresh activities", self)
+    self.connect(refresh, SIGNAL("triggered()"), self.refresh)
+    return [refresh]
 
 
 def CreateApplet(parent):
