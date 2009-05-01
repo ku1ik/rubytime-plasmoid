@@ -1,0 +1,17 @@
+[Global]
+IconName=ktimer
+Comment=Rubytime Plasmoid
+Name=Rubytime
+
+[Event/missing-activity]
+Name=Missing Activity
+Comment=Activity for today or yesterday is missing
+Sound=KDE-Sys-App-Message.ogg
+Action=Popup|Sound
+Persistant=true
+
+[Event/error]
+Name=Error
+Comment=Some error occured
+Sound=KDE-Sys-App-Error.ogg
+Action=Popup|Sound

@@ -4,7 +4,7 @@ Comment=Rubytime add activity form and notifications
 
 Type=Service
 ServiceTypes=Plasma/Applet
-Icon=user-away-extended
+Icon=ktimer
 
 X-Plasma-API=python
 X-Plasma-MainScript=code/main.py

@@ -30,6 +30,7 @@ import os
 import sys
 import datetime
 import urllib
+import shutil
 sys.path.append(os.path.dirname(__file__))
 import simplejson
 from widgets import *
@@ -43,15 +44,12 @@ class RubytimeApplet(plasmascript.Applet):
     plasmascript.Applet.__init__(self, parent)
 
   def init(self):
+    self.appName = "rubytime-plasmoid"
     self.cfg = RubytimeConfig(self.config())
 
     self.activities = []
     self.activitiesLabels = []
     self.projects = {}
-
-    # setup notifications proxy
-    self.sessionBus = dbus.SessionBus()
-    self.notificationsProxy = self.sessionBus.get_object('org.kde.plasma', '/VisualNotifications')
 
     self.setHasConfigurationInterface(True) # it doesn't matter however
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
@@ -61,6 +59,9 @@ class RubytimeApplet(plasmascript.Applet):
 
     # build layout
     self.createLayout()
+
+    # ensure notifyrc file exists
+    self.ensureNotifyrcExists()
 
     # setup activities updates
     self.updateTimer = QTimer(self)
@@ -244,7 +245,7 @@ class RubytimeApplet(plasmascript.Applet):
   def processResult(self, job):
     self.applet.setBusy(False)
     if job.error() > 0:
-      self.showFlash(job.errorString())
+      self.showError(job.errorString())
       return False
     return True
 
@@ -257,7 +258,7 @@ class RubytimeApplet(plasmascript.Applet):
     success = self.processResult(job)
     if not success: return
     if job.isErrorPage():
-      self.showFlash("Error while fetching activities.")
+      self.showError("Error while fetching activities.")
       return
     activitiesData = simplejson.JSONDecoder().decode(str(job.data()))
     self.updateActivities(activitiesData)
@@ -271,7 +272,7 @@ class RubytimeApplet(plasmascript.Applet):
     success = self.processResult(job)
     if not success: return
     if job.isErrorPage():
-      self.showFlash("Error while fetching projects.")
+      self.showError("Error while fetching projects.")
       return
     projectsData = simplejson.JSONDecoder().decode(str(job.data()))
     self.updateProjects(projectsData)
@@ -299,9 +300,9 @@ class RubytimeApplet(plasmascript.Applet):
         errors = simplejson.JSONDecoder().decode(str(data))
         KMessageBox.error(None, "\n".join([e[0] for e in errors.values()]))
       else:
-        self.showFlash("Error while adding activity.")
+        self.showError("Error while adding activity.")
       return
-    self.showFlash("Activity added successfully :)")
+#    KMessageBox.information(None, "Activity added successfully :)")
     self.resetForm()
     self.fetchActivities()
 
@@ -357,31 +358,25 @@ class RubytimeApplet(plasmascript.Applet):
 
   def morningCheck(self):
     self.morningTimer.stop()
-    self.sendNotification("<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>", 0)
+    self.sendNotification("missing-activity", "<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>", 0)
     pass
 
 
   def afternoonCheck(self):
     self.afternoonTimer.stop()
-    self.sendNotification("<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>", 0)
+    self.sendNotification("missing-activity", "<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>", 0)
     pass
 
 
-  def showFlash(self, msg):
+  def showError(self, msg):
     print "flash: " + msg
-    self.sendNotification(msg)
+    self.sendNotification("error", msg)
 
 
-  def sendNotification(self, body, timeout=10000):
-#    KNotification.event("rubytime-check",
-#      body,
-#      QPixmap(),
-#      None,
-#      KNotification.CloseOnTimeout,
-#      KComponentData("rubytime-plasmoid", "rubytime-plasmoid", KComponentData.SkipMainComponentRegistration)
-#      )
-
-    self.notificationsProxy.Notify('rubytime-plasmoid', 0, "someid", 'folder-red', 'Rubytime', str(body), [], [], timeout, dbus_interface='org.kde.VisualNotifications')
+  def sendNotification(self, type, body, timeout=10000):
+    KNotification.event(type, body, QPixmap(), None, KNotification.CloseOnTimeout,
+      KComponentData(self.appName, self.appName, KComponentData.SkipMainComponentRegistration)
+    )
 
 
   def createConfigurationInterface(self, parent):
@@ -400,7 +395,7 @@ class RubytimeApplet(plasmascript.Applet):
     self.configNotificationsForm = QWidget()
     self.configNotifications = confignotifications.Ui_form()
     self.configNotifications.setupUi(self.configNotificationsForm)
-    p = parent.addPage(self.configNotificationsForm, ki18n("General").toString())
+    p = parent.addPage(self.configNotificationsForm, ki18n("Notifications").toString())
     p.setIcon( KIcon("preferences-desktop-notification") )
     # init notifications page
     # ...
@@ -429,10 +424,26 @@ class RubytimeApplet(plasmascript.Applet):
     self.configGeneralForm.deleteLater()
     self.configNotificationsForm.deleteLater()
 
+
   def contextualActions(self):
     refresh = QAction(KIcon("view-refresh"), "Refresh activities", self)
     self.connect(refresh, SIGNAL("triggered()"), self.refresh)
     return [refresh]
+
+
+  def ensureNotifyrcExists(self):
+    try:
+      kdehome = str(KGlobal.dirs().localkdedir())
+      filepath = kdehome + "share/apps/" + self.appName
+      filename = filepath + "/" + self.appName + ".notifyrc"
+      if not os.path.exists(filename):
+          if os.path.exists(kdehome + "share/apps"):
+            if not os.path.isdir(filepath):
+              os.mkdir(filepath)
+            shutil.copy(self.package().path() + "contents/%s.notifyrc" % self.appName, filename)
+    except:
+        print "Unexpected error:", sys.exc_info()[0]
+
 
 
 def CreateApplet(parent):

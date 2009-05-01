@@ -5,46 +5,104 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>392</width>
-    <height>287</height>
+    <width>468</width>
+    <height>209</height>
    </rect>
   </property>
   <property name="windowTitle" >
    <string>Form</string>
   </property>
-  <layout class="QFormLayout" name="formLayout" >
-   <item row="0" column="0" >
-    <widget class="QLabel" name="label" >
+  <layout class="QVBoxLayout" name="verticalLayout" >
+   <item>
+    <widget class="QLabel" name="label_3" >
+     <property name="sizePolicy" >
+      <sizepolicy vsizetype="Fixed" hsizetype="Preferred" >
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="text" >
-      <string>Morning check at</string>
+      <string>Rubytime plasmoid can notify you about missing activities.
+</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="0" >
-    <widget class="QLabel" name="label_2" >
+   <item>
+    <layout class="QGridLayout" name="gridLayout" >
+     <item row="0" column="0" >
+      <widget class="QCheckBox" name="checkBox" >
+       <property name="text" >
+        <string>Check for yesterday's activity at</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1" >
+      <widget class="QTimeEdit" name="timeEdit" >
+       <property name="displayFormat" >
+        <string>HH:mm</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" >
+      <widget class="QCheckBox" name="checkBox_2" >
+       <property name="text" >
+        <string>Check for today's activity at</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1" >
+      <widget class="QTimeEdit" name="timeEdit_2" >
+       <property name="displayFormat" >
+        <string>HH:mm</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2" >
+      <spacer name="horizontalSpacer" >
+       <property name="orientation" >
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0" >
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_4" >
+     <property name="sizePolicy" >
+      <sizepolicy vsizetype="Fixed" hsizetype="Preferred" >
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="text" >
-      <string>Afternoon check at</string>
+      <string>
+To configure notifications behaviour please go to the KDE "System Settings",
+select "Notifications", select "Rubytime Plasmoid" and then modify as required.</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="1" >
-    <widget class="QTimeEdit" name="timeEdit" >
-     <property name="displayFormat" >
-      <string>HH:mm</string>
+   <item>
+    <spacer name="verticalSpacer" >
+     <property name="orientation" >
+      <enum>Qt::Vertical</enum>
      </property>
-    </widget>
-   </item>
-   <item row="1" column="1" >
-    <widget class="QTimeEdit" name="timeEdit_2" >
-     <property name="displayFormat" >
-      <string>HH:mm</string>
+     <property name="sizeHint" stdset="0" >
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
      </property>
-    </widget>
+    </spacer>
    </item>
   </layout>
  </widget>
  <layoutdefault spacing="4" margin="4" />
- <includes/>
  <resources/>
  <connections/>
 </ui>
