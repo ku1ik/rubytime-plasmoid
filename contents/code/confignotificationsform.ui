@@ -30,28 +30,28 @@
    <item>
     <layout class="QGridLayout" name="gridLayout" >
      <item row="0" column="0" >
-      <widget class="QCheckBox" name="checkBox" >
+      <widget class="QCheckBox" name="checkYesterday" >
        <property name="text" >
         <string>Check for yesterday's activity at</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1" >
-      <widget class="QTimeEdit" name="timeEdit" >
+      <widget class="QTimeEdit" name="checkYesterdayTime" >
        <property name="displayFormat" >
         <string>HH:mm</string>
        </property>
       </widget>
      </item>
      <item row="1" column="0" >
-      <widget class="QCheckBox" name="checkBox_2" >
+      <widget class="QCheckBox" name="checkToday" >
        <property name="text" >
         <string>Check for today's activity at</string>
        </property>
       </widget>
      </item>
      <item row="1" column="1" >
-      <widget class="QTimeEdit" name="timeEdit_2" >
+      <widget class="QTimeEdit" name="checkTodayTime" >
        <property name="displayFormat" >
         <string>HH:mm</string>
        </property>

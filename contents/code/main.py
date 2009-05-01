@@ -25,7 +25,6 @@ from PyKDE4.kdeui import *
 from PyKDE4.kio import *
 from PyKDE4.plasma import Plasma
 from PyKDE4 import plasmascript
-import dbus
 import os
 import sys
 import datetime
@@ -34,8 +33,8 @@ import shutil
 sys.path.append(os.path.dirname(__file__))
 import simplejson
 from widgets import *
-import configgeneral
-import confignotifications
+from configgeneral import ConfigGeneral
+from confignotifications import ConfigNotifications
 from config import RubytimeConfig
 
 
@@ -66,6 +65,8 @@ class RubytimeApplet(plasmascript.Applet):
     # setup activities updates
     self.updateTimer = QTimer(self)
     self.connect(self.updateTimer, SIGNAL("timeout()"), self.fetchProjects)
+    self.morningTimer = None
+    self.afternoonTimer = None
     
     # conditionaly enable widget and timers
     self.resetWidget(self.cfg.isValid())
@@ -74,17 +75,36 @@ class RubytimeApplet(plasmascript.Applet):
   def resetWidget(self, isEnabled):
     self.setConfigurationRequired(not isEnabled, "")
     self.updateTimer.stop()
+    if self.morningTimer:
+      self.morningTimer.stop()
+    if self.afternoonTimer:
+      self.afternoonTimer.stop()
     if isEnabled:
       self.refresh()
 
-    # setup timers
-#    self.setupTimers()
-
-    # initial fetch
   
   def refresh(self):
     self.fetchProjects()
+    # start cycle refreshing
     self.updateTimer.start(10 * 60 * 1000)
+
+    # setup morning notifications
+    seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkYesterdayTime))
+    if seconds < 0:
+      seconds = 86400 + seconds
+    self.morningTimer = QTimer(self)
+    self.morningTimer.setSingleShot(True)
+    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
+    self.morningTimer.start(seconds * 1000)
+
+    # setup afternoon notifications
+    seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkTodayTime))
+    if seconds < 0:
+      seconds = 86400 + seconds
+    self.afternoonTimer = QTimer(self)
+    self.afternoonTimer.setSingleShot(True)
+    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
+    self.afternoonTimer.start(seconds * 1000)
 
 
   def createLayout(self):
@@ -165,7 +185,6 @@ class RubytimeApplet(plasmascript.Applet):
     newActivityLayout.addItem(hoursLayout)
 
     self.comments = Plasma.TextEdit()
-#    self.comments.nativeWidget().setAcceptRichText(False)
     newActivityLayout.addItem(self.comments)
 
     # button
@@ -191,50 +210,6 @@ class RubytimeApplet(plasmascript.Applet):
       self.activitiesLabels.append(label)
 
     self.setLayout(self.layout)
-    # self.resize(350, 500)
-
-
-#    flashLayout = QGraphicsLinearLayout(Qt.Horizontal, self)
-#    self.label = Plasma.FlashingLabel()#self)
-#    self.label.setAutohide(True)
-#    self.label.setMinimumSize(0, 20)
-#    self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-
-
-#    self.entries = []
-    #gc = self.config()
-    #(count, bummer) = gc.readEntry("count", QVariant(0) ).toInt()
-    #if count > 0:
-    #	default = QStringList("*")
-    #	default.append( os.path.expanduser("~") )
-    #	default.append("True")
-    #	default.append("False")
-    #	for i in range(0, count):
-    #		lst = gc.readXdgListEntry("_" + str(i), default)
-    #		lst.append("")
-    #		wildcard = True
-    #		if lst[2] == "False":
-    #			wildcard = False
-    #		case = False
-    #		if lst[3] == "True":
-    #			case = True
-    #		self.entries.append( [lst[0], lst[1], wildcard, case] )
-    # self.resize(128, 128)
-
-  def setupTimers(self):
-    pass
-    # setup morning notifications
-#    self.morningTimer = QTimer(self)
-#    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
-#    self.morningTimer.start(10 * 1000)
-
-    # setup afternoon notifications
-#    self.afternoonTimer = QTimer(self)
-#    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
-#    self.afternoonTimer.start(20 * 1000)
-
-#  def constraintsEvent(self, constraints):
-#    pass
 
 
   def resetForm(self):
@@ -251,7 +226,7 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def fetchActivities(self):
-    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber }), self.fetchActivitiesResult)
+    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber.toInt()[0] }), self.fetchActivitiesResult)
 
 
   def fetchActivitiesResult(self, job):
@@ -307,6 +282,23 @@ class RubytimeApplet(plasmascript.Applet):
     self.fetchActivities()
 
 
+  def getActivitiesForDay(self):
+    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[date_from]': self.checkDay, 'search_criteria[date_to]': self.checkDay }), self.getActivitiesForDayResult)
+
+
+  def getActivitiesForDayResult(self, job):
+    success = self.processResult(job)
+    if not success: return
+    if job.isErrorPage():
+      self.showError("Error while fetching activity for day %s." % self.checkDay)
+      return
+    activities = simplejson.JSONDecoder().decode(str(job.data()))
+    activitiesForDay = [a for a in activities if a["date"] == self.checkDay]
+    if not activitiesForDay:
+      msg = self.checkType == "morning" and "<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>" or "<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>"
+      self.sendNotification("missing-activity", msg)
+
+
   def makeRequest(self, path, resultsCallback, data=None):
     self.applet.setBusy(True)
     url = str((self.cfg.instanceURL + path).replace("://", "://" + self.cfg.username + "@"))
@@ -357,23 +349,23 @@ class RubytimeApplet(plasmascript.Applet):
   
 
   def morningCheck(self):
-    self.morningTimer.stop()
-    self.sendNotification("missing-activity", "<html><b>Morning!</b><br/>Did you fill Rubytime for yesterday?</html>", 0)
-    pass
+    self.checkType = "morning"
+    self.checkDay = str(QDate.currentDate().addDays(-1).toString("yyyy-MM-dd"))
+    self.getActivitiesForDay()
 
 
   def afternoonCheck(self):
-    self.afternoonTimer.stop()
-    self.sendNotification("missing-activity", "<html><b>Good afternoon!</b><br/>Don't forget to add today's activities to Rubytime.</html>", 0)
-    pass
+    self.checkType = "afternoon"
+    self.checkDay = str(QDate.currentDate().toString("yyyy-MM-dd"))
+    self.getActivitiesForDay()
 
 
   def showError(self, msg):
-    print "flash: " + msg
+    print "error: " + msg
     self.sendNotification("error", msg)
 
 
-  def sendNotification(self, type, body, timeout=10000):
+  def sendNotification(self, type, body):
     KNotification.event(type, body, QPixmap(), None, KNotification.CloseOnTimeout,
       KComponentData(self.appName, self.appName, KComponentData.SkipMainComponentRegistration)
     )
@@ -381,29 +373,28 @@ class RubytimeApplet(plasmascript.Applet):
 
   def createConfigurationInterface(self, parent):
     # create general page
-    self.configGeneralForm = QWidget()
-    self.configGeneral = configgeneral.Ui_form()
-    self.configGeneral.setupUi(self.configGeneralForm)
-    p = parent.addPage(self.configGeneralForm, ki18n("General").toString())
+    self.configGeneral = ConfigGeneral()
+    p = parent.addPage(self.configGeneral, ki18n("General").toString())
     p.setIcon( KIcon("user-identity") )
     # init general page
     self.configGeneral.instanceURL.setText(self.cfg.instanceURL)
     self.configGeneral.username.setText(self.cfg.username)
-    self.configGeneral.activitiesNumber.setValue(self.cfg.activitiesNumber)
+    self.configGeneral.activitiesNumber.setValue(self.cfg.activitiesNumber.toInt()[0])
 
     # create notifications page
-    self.configNotificationsForm = QWidget()
-    self.configNotifications = confignotifications.Ui_form()
-    self.configNotifications.setupUi(self.configNotificationsForm)
-    p = parent.addPage(self.configNotificationsForm, ki18n("Notifications").toString())
+    self.configNotifications = ConfigNotifications()
+    p = parent.addPage(self.configNotifications, ki18n("Notifications").toString())
     p.setIcon( KIcon("preferences-desktop-notification") )
     # init notifications page
-    # ...
+    self.configNotifications.checkYesterday.setChecked(self.cfg.checkYesterday.toBool())
+    self.configNotifications.checkToday.setChecked(self.cfg.checkToday.toBool())
+    self.configNotifications.checkYesterdayTime.setTime(QTime.fromString(self.cfg.checkYesterdayTime))
+    self.configNotifications.checkTodayTime.setTime(QTime.fromString(self.cfg.checkTodayTime))
     
     # buttons
     parent.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
     self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
-    self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
+#    self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
 
 
   def showConfigurationInterface(self):
@@ -416,13 +407,11 @@ class RubytimeApplet(plasmascript.Applet):
   def configAccepted(self):
     self.cfg.instanceURL = self.configGeneral.instanceURL.text()
     self.cfg.username = self.configGeneral.username.text()
+    self.cfg.checkYesterday = QVariant(self.configNotifications.checkYesterday.isChecked())
+    self.cfg.checkToday = QVariant(self.configNotifications.checkToday.isChecked())
+    self.cfg.checkYesterdayTime = self.configNotifications.checkYesterdayTime.time().toString("hh:mm:ss")
+    self.cfg.checkTodayTime = self.configNotifications.checkTodayTime.time().toString("hh:mm:ss")
     self.resetWidget(self.cfg.isValid())
-    self.configDenied()
-
-
-  def configDenied(self):
-    self.configGeneralForm.deleteLater()
-    self.configNotificationsForm.deleteLater()
 
 
   def contextualActions(self):
