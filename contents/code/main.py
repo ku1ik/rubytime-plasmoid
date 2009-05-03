@@ -46,10 +46,12 @@ class RubytimeApplet(plasmascript.Applet):
     self.appName = "rubytime-plasmoid"
     self.cfg = RubytimeConfig(self.config())
 
+    self.projects = {}
     self.activities = []
     self.activitiesLabels = []
-    self.projects = {}
-
+    self.activitiesFrames = []
+    self.recentLabel = None
+    
     self.setHasConfigurationInterface(True) # it doesn't matter however
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
     self.theme = Plasma.Svg(self)
@@ -80,6 +82,7 @@ class RubytimeApplet(plasmascript.Applet):
     if self.afternoonTimer:
       self.afternoonTimer.stop()
     if isEnabled:
+      self.setupActivitiesList()
       self.refresh()
 
   
@@ -195,21 +198,41 @@ class RubytimeApplet(plasmascript.Applet):
     self.layout.addItem(newActivityFrame)
     self.connect(sendButton, SIGNAL("clicked()"), self.postActivity)
 
-    # recent activities
-
-    label = Plasma.Label()
-    label.setText('<html><br/><b>Recent activities</b></html>')
-    self.layout.addItem(label)
-
-    for i in xrange(3):
-      frame = Plasma.Frame()
-      frameLayout = QGraphicsLinearLayout(Qt.Vertical, frame)
-      label = Plasma.Label()
-      frameLayout.addItem(label)
-      self.layout.addItem(frame)
-      self.activitiesLabels.append(label)
-
     self.setLayout(self.layout)
+
+
+  def setupActivitiesList(self):
+    n = self.cfg.activitiesNumber.toInt()[0]
+    if n > 0:
+      if not self.recentLabel:
+        self.recentLabel = label = Plasma.Label()
+        self.recentLabel.setText('<html><br/><b>Recent activities</b></html>')
+        self.layout.addItem(self.recentLabel)
+      diff = n - len(self.activitiesFrames)
+      if diff > 0:
+        for i in xrange(diff):
+          frame = Plasma.Frame()
+          frameLayout = QGraphicsLinearLayout(Qt.Vertical, frame)
+          label = Plasma.Label()
+          frameLayout.addItem(label)
+          self.layout.addItem(frame)
+          self.activitiesLabels.append(label)
+          self.activitiesFrames.append(frame)
+      elif diff < 0:
+        for i in xrange(-diff):
+          label = self.activitiesLabels[-1-i]
+          frame = self.activitiesFrames[-1-i]
+          self.layout.removeItem(frame)
+          self.activitiesFrames.remove(frame)
+          self.activitiesLabels.remove(label)
+    else:
+      if self.recentLabel:
+        self.layout.removeItem(self.recentLabel)
+        self.recentLabel = None
+        for frame in self.activitiesFrames:
+          self.layout.removeItem(frame)
+        self.activitiesFrames = []
+        self.activitiesLabels = []
 
 
   def resetForm(self):
@@ -226,7 +249,9 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def fetchActivities(self):
-    return self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': self.cfg.activitiesNumber.toInt()[0] }), self.fetchActivitiesResult)
+    n = self.cfg.activitiesNumber.toInt()[0]
+    if n > 0:
+      self.makeRequest('/activities?' + urllib.urlencode({ 'search_criteria[limit]': n }), self.fetchActivitiesResult)
 
 
   def fetchActivitiesResult(self, job):
@@ -407,6 +432,7 @@ class RubytimeApplet(plasmascript.Applet):
   def configAccepted(self):
     self.cfg.instanceURL = self.configGeneral.instanceURL.text()
     self.cfg.username = self.configGeneral.username.text()
+    self.cfg.activitiesNumber = QVariant(self.configGeneral.activitiesNumber.value())
     self.cfg.checkYesterday = QVariant(self.configNotifications.checkYesterday.isChecked())
     self.cfg.checkToday = QVariant(self.configNotifications.checkToday.isChecked())
     self.cfg.checkYesterdayTime = self.configNotifications.checkYesterdayTime.time().toString("hh:mm:ss")
