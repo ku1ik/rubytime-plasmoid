@@ -70,44 +70,43 @@ class RubytimeApplet(plasmascript.Applet):
     self.morningTimer = None
     self.afternoonTimer = None
     
-    # conditionaly enable widget and timers
-    self.resetWidget(self.cfg.isValid())
+    self.resetWidget()
 
 
-  def resetWidget(self, isEnabled):
+  def resetWidget(self):
+    isEnabled = self.cfg.isValid()
+
     self.setConfigurationRequired(not isEnabled, "")
     self.updateTimer.stop()
     if self.morningTimer:
       self.morningTimer.stop()
     if self.afternoonTimer:
       self.afternoonTimer.stop()
+
     if isEnabled:
       self.setupActivitiesList()
-      self.refresh()
+      self.fetchProjects()
+      self.updateTimer.start(10 * 60 * 1000)
 
-  
-  def refresh(self):
-    self.fetchProjects()
-    # start cycle refreshing
-    self.updateTimer.start(10 * 60 * 1000)
+      # setup morning notifications
+      if self.cfg.checkYesterday.toBool():
+        seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkYesterdayTime))
+        if seconds < 0:
+          seconds = 86400 + seconds
+        self.morningTimer = QTimer(self)
+        self.morningTimer.setSingleShot(True)
+        self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
+        self.morningTimer.start(seconds * 1000)
 
-    # setup morning notifications
-    seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkYesterdayTime))
-    if seconds < 0:
-      seconds = 86400 + seconds
-    self.morningTimer = QTimer(self)
-    self.morningTimer.setSingleShot(True)
-    self.connect(self.morningTimer, SIGNAL("timeout()"), self.morningCheck)
-    self.morningTimer.start(seconds * 1000)
-
-    # setup afternoon notifications
-    seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkTodayTime))
-    if seconds < 0:
-      seconds = 86400 + seconds
-    self.afternoonTimer = QTimer(self)
-    self.afternoonTimer.setSingleShot(True)
-    self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
-    self.afternoonTimer.start(seconds * 1000)
+      # setup afternoon notifications
+      if self.cfg.checkToday.toBool():
+        seconds = QTime.currentTime().secsTo(QTime.fromString(self.cfg.checkTodayTime))
+        if seconds < 0:
+          seconds = 86400 + seconds
+        self.afternoonTimer = QTimer(self)
+        self.afternoonTimer.setSingleShot(True)
+        self.connect(self.afternoonTimer, SIGNAL("timeout()"), self.afternoonCheck)
+        self.afternoonTimer.start(seconds * 1000)
 
 
   def createLayout(self):
@@ -437,12 +436,12 @@ class RubytimeApplet(plasmascript.Applet):
     self.cfg.checkToday = QVariant(self.configNotifications.checkToday.isChecked())
     self.cfg.checkYesterdayTime = self.configNotifications.checkYesterdayTime.time().toString("hh:mm:ss")
     self.cfg.checkTodayTime = self.configNotifications.checkTodayTime.time().toString("hh:mm:ss")
-    self.resetWidget(self.cfg.isValid())
+    self.resetWidget()
 
 
   def contextualActions(self):
     refresh = QAction(KIcon("view-refresh"), "Refresh activities", self)
-    self.connect(refresh, SIGNAL("triggered()"), self.refresh)
+    self.connect(refresh, SIGNAL("triggered()"), self.fetchProjects)
     return [refresh]
 
 
