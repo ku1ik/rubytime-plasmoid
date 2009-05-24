@@ -153,7 +153,7 @@ class RubytimeApplet(plasmascript.Applet):
 #    grid.addItem(label, 0, 0)
 #    projectNameLayout.setAlignment(label, Qt.AlignRight)
     self.projectNameCombo = Plasma.ComboBox()
-    self.projectNameCombo.setZValue(51)
+    self.projectNameCombo.setZValue(52)
     projectNameLayout.addItem(self.projectNameCombo)
 #    grid.addItem(projectNameCombo, 0, 1)
     newActivityLayout.addItem(projectNameLayout)
@@ -180,7 +180,7 @@ class RubytimeApplet(plasmascript.Applet):
   
     dateWidget = QGraphicsProxyWidget()
     dateWidget.setWidget(self.date)
-    dateWidget.setZValue(50)
+    dateWidget.setZValue(51)
     dateLayout.addItem(dateWidget)
     newActivityLayout.addItem(dateLayout)
 
@@ -226,13 +226,15 @@ class RubytimeApplet(plasmascript.Applet):
     n = self.cfg.activitiesNumber.toInt()[0]
     if n > 0:
       if not self.recentLabel:
-        self.recentLabel = label = Plasma.Label()
+        self.recentLabel = Plasma.Label()
+        self.recentLabel.setZValue(-1)
         self.recentLabel.setText('<html><br/><b>Recent activities</b></html>')
         self.layout.addItem(self.recentLabel)
       diff = n - len(self.activitiesFrames)
       if diff > 0:
         for i in xrange(diff):
           frame = Plasma.Frame()
+          frame.setZValue(-1)
           frameLayout = QGraphicsLinearLayout(Qt.Vertical, frame)
           label = Plasma.Label()
           frameLayout.addItem(label)
