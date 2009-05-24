@@ -243,11 +243,11 @@ class RubytimeApplet(plasmascript.Applet):
           self.activitiesFrames.append(frame)
       elif diff < 0:
         for i in xrange(-diff):
-          label = self.activitiesLabels[-1-i]
-          frame = self.activitiesFrames[-1-i]
+          label = self.activitiesLabels[-1]
+          self.activitiesLabels.remove(label)
+          frame = self.activitiesFrames[-1]
           self.layout.removeItem(frame)
           self.activitiesFrames.remove(frame)
-          self.activitiesLabels.remove(label)
     else:
       if self.recentLabel:
         self.layout.removeItem(self.recentLabel)
@@ -256,6 +256,7 @@ class RubytimeApplet(plasmascript.Applet):
           self.layout.removeItem(frame)
         self.activitiesFrames = []
         self.activitiesLabels = []
+    self.setMinimumSize(330, 350 + n * 30)
 
 
   def resetForm(self):
