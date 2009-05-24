@@ -153,6 +153,7 @@ class RubytimeApplet(plasmascript.Applet):
 #    grid.addItem(label, 0, 0)
 #    projectNameLayout.setAlignment(label, Qt.AlignRight)
     self.projectNameCombo = Plasma.ComboBox()
+    self.projectNameCombo.setZValue(51)
     projectNameLayout.addItem(self.projectNameCombo)
 #    grid.addItem(projectNameCombo, 0, 1)
     newActivityLayout.addItem(projectNameLayout)
@@ -168,8 +169,18 @@ class RubytimeApplet(plasmascript.Applet):
     self.date = KDateWidget()
     self.date.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     self.date.setAttribute(Qt.WA_NoSystemBackground)
+#    print Plasma.Style.sharedStyle()
+
+#    color = Plasma.Theme.defaultTheme().color(Plasma.Theme.TextColor)
+#    p = self.date.palette()
+#    p.setColor(QPalette.Normal, QPalette.Text, color);
+#    p.setColor(QPalette.Inactive, QPalette.Text, color);
+#    self.date.setPalette(p);
+#    self.date.setFont(Plasma.Theme.defaultTheme().font(Plasma.Theme.DefaultFont));
+  
     dateWidget = QGraphicsProxyWidget()
     dateWidget.setWidget(self.date)
+    dateWidget.setZValue(50)
     dateLayout.addItem(dateWidget)
     newActivityLayout.addItem(dateLayout)
 
@@ -181,16 +192,27 @@ class RubytimeApplet(plasmascript.Applet):
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     hoursLayout.addItem(label)
     self.hours = Plasma.LineEdit()
+    self.hours.setZValue(50)
 #    hours.setMaximumSize(100, 10)
 #    hours.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored)
     hoursLayout.addItem(self.hours)
     newActivityLayout.addItem(hoursLayout)
 
+    # comments
+#    s = Plasma.Theme.defaultTheme()
+#    print s
+#    print s.colorScheme
+#    colorScheme = KColorScheme(QPalette.Active, KColorScheme.View, s)
     self.comments = Plasma.TextEdit()
+#    editPal = self.comments.palette()
+#    editPal.setColor(QPalette.Text, colorScheme.foreground().color())
+#    self.comments.nativeWidget().setPalette(editPal)
+
     newActivityLayout.addItem(self.comments)
 
     # button
     sendButton = Plasma.PushButton()
+    sendButton.setZValue(-1)
     sendButton.setText('Add!')
     newActivityLayout.addItem(sendButton)
     newActivityFrame.setFrameShadow(Plasma.Frame.Sunken)
