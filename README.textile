@@ -14,7 +14,7 @@ TODO
 
 h2. Contact & Information
 
-Created by Marcin Kulik (http://sickill.net)
+Created by Marcin Kulik ("my blog":http://sickill.net)
 
 For more information about Rubytime go to "Rubytime's website":http://www.rubytime.org. For information about Lunar Logic and our work go to "our website":http://www.lunarlogicpolska.com.
 
