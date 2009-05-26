@@ -10,7 +10,7 @@ h2. Features
 
 h2. Screenshots
 
-TODO
+!http://cloud.github.com/downloads/sickill/rubytime-plasmoid/rubytime-plasmoid-cropped.png!
 
 h2. Contact & Information
 
