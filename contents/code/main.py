@@ -415,7 +415,7 @@ class RubytimeApplet(plasmascript.Applet):
 
 
   def sendNotification(self, type, body):
-    KNotification.event(type, body, QPixmap(), None, KNotification.CloseOnTimeout,
+    KNotification.event(type, body, QPixmap(), None, KNotification.Persistent,
       KComponentData(self.appName, self.appName, KComponentData.SkipMainComponentRegistration)
     )
 
