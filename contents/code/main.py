@@ -262,6 +262,7 @@ class RubytimeApplet(plasmascript.Applet):
   def resetForm(self):
     self.hours.setText("")
     self.comments.setText("")
+    self.date.setDate(self.date.date().addDays(1))
 
 
   def processResult(self, job):
