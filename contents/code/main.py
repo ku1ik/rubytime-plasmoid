@@ -51,7 +51,7 @@ class RubytimeApplet(plasmascript.Applet):
     self.activitiesLabels = []
     self.activitiesFrames = []
     self.recentLabel = None
-    
+
     self.setHasConfigurationInterface(True) # it doesn't matter however
     self.setAspectRatioMode(Plasma.IgnoreAspectRatio)
     self.theme = Plasma.Svg(self)
@@ -69,7 +69,7 @@ class RubytimeApplet(plasmascript.Applet):
     self.connect(self.updateTimer, SIGNAL("timeout()"), self.fetchProjects)
     self.morningTimer = None
     self.afternoonTimer = None
-    
+
     self.resetWidget()
 
 
@@ -144,20 +144,15 @@ class RubytimeApplet(plasmascript.Applet):
 
     # project name
     projectNameLayout = QGraphicsLinearLayout(Qt.Horizontal)
-#    grid = QGraphicsGridLayout()
     label = Plasma.Label()
     label.setText('<html><b>Project</b></html>')
     label.setPreferredSize(60, 0)
     label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Ignored)
     projectNameLayout.addItem(label)
-#    grid.addItem(label, 0, 0)
-#    projectNameLayout.setAlignment(label, Qt.AlignRight)
     self.projectNameCombo = Plasma.ComboBox()
     self.projectNameCombo.setZValue(52)
     projectNameLayout.addItem(self.projectNameCombo)
-#    grid.addItem(projectNameCombo, 0, 1)
     newActivityLayout.addItem(projectNameLayout)
-#    newActivityLayout.addItem(grid)
 
     # activity date
     dateLayout = QGraphicsLinearLayout(Qt.Horizontal)
@@ -169,15 +164,7 @@ class RubytimeApplet(plasmascript.Applet):
     self.date = KDateWidget()
     self.date.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     self.date.setAttribute(Qt.WA_NoSystemBackground)
-#    print Plasma.Style.sharedStyle()
 
-#    color = Plasma.Theme.defaultTheme().color(Plasma.Theme.TextColor)
-#    p = self.date.palette()
-#    p.setColor(QPalette.Normal, QPalette.Text, color);
-#    p.setColor(QPalette.Inactive, QPalette.Text, color);
-#    self.date.setPalette(p);
-#    self.date.setFont(Plasma.Theme.defaultTheme().font(Plasma.Theme.DefaultFont));
-  
     dateWidget = QGraphicsProxyWidget()
     dateWidget.setWidget(self.date)
     dateWidget.setZValue(51)
@@ -193,21 +180,11 @@ class RubytimeApplet(plasmascript.Applet):
     hoursLayout.addItem(label)
     self.hours = Plasma.LineEdit()
     self.hours.setZValue(50)
-#    hours.setMaximumSize(100, 10)
-#    hours.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored)
     hoursLayout.addItem(self.hours)
     newActivityLayout.addItem(hoursLayout)
 
     # comments
-#    s = Plasma.Theme.defaultTheme()
-#    print s
-#    print s.colorScheme
-#    colorScheme = KColorScheme(QPalette.Active, KColorScheme.View, s)
     self.comments = Plasma.TextEdit()
-#    editPal = self.comments.palette()
-#    editPal.setColor(QPalette.Text, colorScheme.foreground().color())
-#    self.comments.nativeWidget().setPalette(editPal)
-
     newActivityLayout.addItem(self.comments)
 
     # button
@@ -327,7 +304,6 @@ class RubytimeApplet(plasmascript.Applet):
       else:
         self.showError("Error while adding activity.")
       return
-#    KMessageBox.information(None, "Activity added successfully :)")
     self.resetForm()
     self.fetchActivities()
 
@@ -387,7 +363,7 @@ class RubytimeApplet(plasmascript.Applet):
       label.setText('<html>%s: <b>%s</b> on <b>%s</b></html>' % (dateFormatted, time, projectName))
     if activities:
       self.projectNameCombo.nativeWidget().setCurrentItem(self.projects[activities[0]['project_id']])
-      
+
 
   def formatMinutes(self, minutes):
     h = minutes / 60
@@ -396,7 +372,7 @@ class RubytimeApplet(plasmascript.Applet):
     if m > 0:
       s += " " + str(m) + "m"
     return s
-  
+
 
   def morningCheck(self):
     self.checkType = "morning"
@@ -440,11 +416,10 @@ class RubytimeApplet(plasmascript.Applet):
     self.configNotifications.checkToday.setChecked(self.cfg.checkToday.toBool())
     self.configNotifications.checkYesterdayTime.setTime(QTime.fromString(self.cfg.checkYesterdayTime))
     self.configNotifications.checkTodayTime.setTime(QTime.fromString(self.cfg.checkTodayTime))
-    
+
     # buttons
     parent.setButtons(KDialog.ButtonCode(KDialog.Ok | KDialog.Cancel))
     self.connect(parent, SIGNAL("okClicked()"), self.configAccepted)
-#    self.connect(parent, SIGNAL("cancelClicked()"), self.configDenied)
 
 
   def showConfigurationInterface(self):
